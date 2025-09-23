@@ -19,6 +19,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "string.h"
+#include "stdint.h"
 #include "i2c.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -109,9 +110,14 @@ int main(void)
   MX_USB_OTG_FS_PCD_Init();
   /* USER CODE BEGIN 2 */
 
+  HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);
+
+  uint8_t data[4]; 
+
   I2C_TypeDef *i2c = I2C1;
-  I2C_Config(i2c);
-  I2C_Start(i2c);
+  I2C_config(i2c);
+  I2C_write(i2c, 0, data, 4);
+  I2C_read(i2c, 0, data, 4);
 
   /* USER CODE END 2 */
 

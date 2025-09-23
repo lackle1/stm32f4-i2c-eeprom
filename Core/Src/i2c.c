@@ -4,14 +4,9 @@
  * @addtogroup  I2C                                                                *
  * @brief       Implements functions for I2C device interface initialization and   *
  *              communication.                                                     *
- *                                                                                 *
- * TODO:        Add functions for receiving data                                   *
- *                                                                                 *
- *                                                                                 *
  ***********************************************************************************/
 
 #include "i2c.h"
-#include "stm32f4xx.h"
 
 /**
  * @brief  Initialises I2C
@@ -56,56 +51,24 @@ void I2C_config(I2C_TypeDef *i2c) {
  *
  * @return @c NULL
  **/
-void I2C_start(I2C_TypeDef *i2c) {
-    i2c->CR1 |= 1<<8;                  // Set START bit
-    while (!(i2c->SR1 & 1<<0));        // Wait for the SB bit to be set
+void _I2C_start(I2C_TypeDef *i2c) {
+    i2c->CR1 |= 1<<8;               // Enable ACK
+    i2c->CR1 |= 1<<8;               // Set START bit
+    while (!(i2c->SR1 & 1<<0));     // Wait for the SB bit to be set
 }
 
 /**
- * @brief  Writes a single byte of data to the address specified with 'sendAddress'
+ * @brief  Sets the 7-bit address of the slave
  *
  * @param  i2c  Pointer to the I2C_TypeDef struct representing the I2C interface.
- * @param  data One byte of data
+ * @param  addr 7-bit address
  *  
  * @return @c NULL
  **/
-void I2C_write(I2C_TypeDef *i2c, uint8_t data) {
-    while (!(i2c->SR1 & 1<<7));        // Wait for TxE bit to be set (data register empty)
-    i2c->DR = data;
-    while (!(i2c->SR1 & 1<<2));        // Wait for BTF to be set (byte transfer finished)
-}
-
-/**
- * @brief  Writes multiple bytes of data to the address specified with 'sendAddress'
- *
- * @param  i2c  Pointer to the I2C_TypeDef struct representing the I2C interface.
- * @param  data Pointer to the beginning of the data
- * @param  size Number of bytes to be sent
- *  
- * @return @c NULL
- **/
-void I2C_writeMulti(I2C_TypeDef *i2c, uint8_t *data, uint8_t size) {
-    for (int i = 0; i < size; i++) {
-        while (!(i2c->SR1 & 1<<7));    // Wait for TxE bit to be set (data register empty)
-        i2c->DR = data[i];
-        size--;
-    }
-
-    while (!(i2c->SR1 & 1<<2));        // Wait for BTF to be set (byte transfer finished)
-}
-
-/**
- * @brief  Sets the address of the slave receiver
- *
- * @param  i2c  Pointer to the I2C_TypeDef struct representing the I2C interface.
- * @param  addr The address of the slave receiver to which data will be sent
- *  
- * @return @c NULL
- **/
-void I2C_sendAddress(I2C_TypeDef *i2c, uint8_t addr) {
+void _I2C_sendAddress(I2C_TypeDef *i2c, uint8_t addr) {
     i2c->DR = addr;
-    while (!(i2c->SR1 & 1<<1));            // Wait for ADDR bit to be set
-    uint8_t tmp = i2c->SR1 | i2c->SR2;    // Read status registers to clear ADDR
+    while (!(i2c->SR1 & 1<<1));             // Wait for ADDR bit to be set
+    uint8_t tmp = i2c->SR1 | i2c->SR2;      // Read status registers to clear ADDR
 }
 
 /**
@@ -115,6 +78,82 @@ void I2C_sendAddress(I2C_TypeDef *i2c, uint8_t addr) {
  *  
  * @return @c NULL
  **/
-void I2C_stop(I2C_TypeDef *i2c) {
+void _I2C_stop(I2C_TypeDef *i2c) {
     i2c->CR1 |= 1<<9;   // Sets stop bit
+}
+
+/**
+ * @brief  Sends data to the device at the address
+ *
+ * @param  i2c  Pointer to the I2C_TypeDef struct representing the I2C interface.
+ * @param  addr 7-bit address
+ * @param  data Pointer to the beginning of the data
+ * @param  size Number of bytes to be sent
+ *  
+ * @return @c NULL
+ **/
+void I2C_write(I2C_TypeDef *i2c, uint8_t addr, uint8_t *data, uint8_t size) {
+    _I2C_start(i2c);
+    _I2C_sendAddress(i2c, addr);
+
+    for (int i = 0; i < size; i++) {
+        while (!(i2c->SR1 & 1<<7));    // Wait for TxE bit to be set (data register empty)
+        i2c->DR = data[i];
+        size--;
+    }
+
+    while (!(i2c->SR1 & 1<<2));        // Wait for BTF to be set (byte transfer finished)
+
+    _I2C_stop(i2c);
+}
+
+/**
+ * @brief  Reads data into a buffer
+ *
+ * @param  i2c  Pointer to the I2C_TypeDef struct representing the I2C interface.
+ * @param  addr 7-bit address
+ * @param  buf  Buffer where the data will be written
+ * @param  size Numbe of bytes to be read
+ *  
+ * @return @c NULL
+ **/
+void I2C_read(I2C_TypeDef *i2c, uint8_t addr, uint8_t *buf, uint8_t size) {
+
+    if (size == 1) {
+        i2c->DR = addr;
+        while (!(i2c->SR1 & 1<<1));         // Wait for ADDR bit to be set
+
+        i2c->CR1 &= ~(1<<10);               // Disable ACK
+        i2c->CR1 |= 1<<11;                  // Set POS bit
+        uint8_t tmp = i2c->SR1 | i2c->SR2;  // Read status registers to clear ADDR
+        i2c->CR1 |= 1<<9;                   // STOP
+
+        while (!(i2c->SR1 & 1<<6));         // Wait until RxNE is set (data register not empty)
+        buf[0] = i2c->DR;
+    }
+    else {
+        uint8_t remaining = size;
+
+        _I2C_sendAddress(i2c, addr);
+
+        while (remaining > 2) {
+            while (!(i2c->SR1 & 1<<6));         // Wait until RxNE is set (data register not empty)
+            buf[size - remaining] = i2c->DR;
+            i2c->CR1 |= 1<<10;                  // Enable ACK (to acknowledge data has been received)
+            remaining--;
+        }
+
+        // Read second last byte
+        while (!(i2c->SR1 & 1<<6));             // Wait until RxNE is set (data register not empty)
+        buf[size - remaining] = i2c->DR;
+
+        i2c->CR1 &= ~(1<<10);                   // Disable ACK
+        _I2C_stop(i2c);
+
+        remaining--;
+
+        // Read last byte
+        while (!(i2c->SR1 & 1<<6));         // Wait until RxNE is set (data register not empty)
+        buf[size - remaining] = i2c->DR;
+    }
 }
