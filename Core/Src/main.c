@@ -116,8 +116,7 @@ int main(void)
 
   I2C_TypeDef *i2c = I2C1;
   I2C_config(i2c);
-  I2C_write(i2c, 0, data, 4);
-  I2C_read(i2c, 0, data, 4);
+  
 
   /* USER CODE END 2 */
 
