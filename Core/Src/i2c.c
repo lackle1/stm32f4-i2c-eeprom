@@ -2,7 +2,7 @@
  * @file        i2c.c                                                              *
  * @author      Lachie Keane                                                       *
  * @addtogroup  I2C                                                                *
- * @brief       Implements functions for I2C interface initialization and   *
+ * @brief       Implements functions for I2C interface initialization and          *
  *              communication.                                                     *
  ***********************************************************************************/
 
@@ -67,8 +67,8 @@ void I2C_start(I2C_TypeDef *i2c) {
  **/
 void I2C_sendAddress(I2C_TypeDef *i2c, uint8_t addr) {
     i2c->DR = addr;
-    while (!(i2c->SR1 & 1<<1));             // Wait for ADDR bit to be set
-    uint8_t tmp = i2c->SR1 | i2c->SR2;      // Read status registers to clear ADDR
+    while (!(i2c->SR1 & 1<<1));         // Wait for ADDR bit to be set
+    (void)(i2c->SR1 | i2c->SR2);        // Read status registers to clear ADDR
 }
 
 /**
@@ -121,7 +121,7 @@ void I2C_read(I2C_TypeDef *i2c, uint8_t addr, uint8_t *buf, uint8_t size) {
 
         i2c->CR1 &= ~(1<<10);               // Disable ACK
         i2c->CR1 |= 1<<11;                  // Set POS bit
-        uint8_t tmp = i2c->SR1 | i2c->SR2;  // Read status registers to clear ADDR
+        
         i2c->CR1 |= 1<<9;                   // STOP
 
         while (!(i2c->SR1 & 1<<6));         // Wait until RxNE is set (data register not empty)
@@ -142,7 +142,7 @@ void I2C_read(I2C_TypeDef *i2c, uint8_t addr, uint8_t *buf, uint8_t size) {
         buf[size - remaining] = i2c->DR;
 
         i2c->CR1 &= ~(1<<10);                   // Disable ACK
-        _I2C_stop(i2c);
+        I2C_stop(i2c);
 
         remaining--;
 
