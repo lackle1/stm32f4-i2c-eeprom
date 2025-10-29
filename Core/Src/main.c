@@ -20,7 +20,10 @@
 #include "main.h"
 #include "string.h"
 #include "stdint.h"
+
 #include "i2c.h"
+#include "eeprom.h"
+#include "rtc.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -111,22 +114,40 @@ int main(void)
 
   //HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);
 
-  uint8_t data[4] = { 0, 1, 1, 0};
+  // uint8_t data[4] = { 0, 1, 1, 0};
 
-  I2C_TypeDef *i2c = I2C1;
-  I2C_config(i2c);
-  
+  // I2C_TypeDef *i2c = I2C1;
+  // I2C_config(i2c);
 
+  // EEPROM_write(i2c, 1, data, 4);
+  // data[1] = 3;
+  // EEPROM_read(i2c, 1, data, 4);
+  ts time;
+  time.secs = 0;
+  time.mins = 44;
+  time.hours = 5;
+  time.date = 17;
+  time.month = 10;
+  time.year = 2025;
+  time.day = Friday;
+  time.isDst = 1;
+  RTC_init(&time);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  //uint8_t seconds = time.secs;
   while (1)
   {
-    HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);
-    HAL_Delay(100);
+    RTC_setTime(&time);
+    RTC_getTime(&time);
+    HAL_Delay(500);
+    if (1) {
+      //HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);
+      //seconds = time.secs;
+    }
+    
     /* USER CODE END WHILE */
-
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
